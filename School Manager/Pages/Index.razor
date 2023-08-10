@@ -1,0 +1,212 @@
+﻿@page "/"
+@using School.API.Entities;
+@using School_Manager.Services;
+
+<PageTitle>Index</PageTitle>
+
+@*<h1>Hello, world!</h1>
+
+Welcome to your new app.
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+*@
+<div style="display:flex; flex-direction:row; column-gap:25px;">
+    <div style="flex-grow:1; border-radius: 8px; background: #FFF; box-shadow: 0px 0px 20px 0px rgba(0, 0, 0, 0.10); overflow:hidden">
+        <table width="100%">    
+            <tr style="border-bottom:1px solid">
+                <th style="padding:8px; border-right:1px solid;">Region name</th>
+                <th style="padding:8px; border-right:1px solid;">School name</th>
+                <th style="padding:8px">Actions</th>
+            </tr>
+            @foreach (var item in schoolsViews)
+            {
+                <tr style="border-bottom:1px solid">
+                    <td @onclick="e=>openSchoolData(item.id)" style="border-right:1px solid; padding:8px">
+                        @if (!item.editing)
+                        {
+                            @item.region_name
+                        }
+                        else
+                        {
+                            <input placeholder="Region name" @bind-value=@item.region_name/>
+                        }
+                    </td>
+                    <td @onclick="e=>openSchoolData(item.id)" style="border-right:1px solid; padding:8px">
+                        @if (!item.editing)
+                        {
+                            @item.school_name
+                        }
+                        else
+                        {
+                            <input placeholder="School name" @bind-value=@item.school_name/>
+                        }
+                    </td>            
+                    <td style=" padding:8px">
+                        @if (!item.editing)
+                        {
+                            <button @onclick="e=>deleteSchool(item.id)" class="btn btn-danger">Delete </button> 
+                            <button @onclick="e=>editData(item)" class="btn btn-warning">Edit </button>
+                        }
+                        else
+                        {
+                            <button @onclick="e=>updateSchool(item)" class="btn btn-success">Update</button> 
+                            <button @onclick="e=>cancelUpdate(item)" class="btn-close"></button> 
+                        }
+                    </td>            
+                </tr>
+             
+            } 
+            @foreach (var school in newSchools)
+            {
+                <tr style="border-bottom:1px solid">
+                    <td style="border-right:1px solid; padding:8px">
+                        <input placeholder="Region name" @bind-value=school.region_name/>
+                    </td>
+                    <td style="border-right:1px solid;  padding:8px">                    
+                        <input placeholder="School name" @bind-value=school.school_name/>
+                    </td>
+                    <td class="justify-content-center" style="padding:8px;">
+                        <button @onclick="e=>saveEntity(school)" class="btn btn-success">Save </button> 
+                        <button @onclick="e=>removeEntity(school)" class="btn-close"></button> 
+                    </td>
+                </tr>
+            }
+            <tfoot>
+                <tr style="text-align:right; ">
+                    <td colspan="4" style="padding:8px">
+                        <button @onclick="e=>addNewSchoolEntity()" class="btn btn-info">
+                            Add new
+                        </button>
+
+                    </td>            
+                </tr>
+
+            </tfoot>
+        </table>
+    </div>
+    
+    @if (school!=null && school.school_name!=null)
+    {
+        <div style="position:sticky; top:72px; height:max-content; border-radius: 8px; background: #FFF; box-shadow: 0px 0px 20px 0px rgba(0, 0, 0, 0.10); padding:8px">
+            <h3> 
+                Selected school data
+            </h3>
+            <p> 
+                Region Name: @school.region_name <br/>
+                School Name: @school.school_name
+            </p> 
+        </div>
+    }      
+
+</div>
+
+<br />
+    
+@*    <p> Region name:  </p>
+    <p> School name:  @item.school_name</p>
+*@
+
+@code{
+    [Inject]
+    private ISchoolManager schoolManager { get; set; }
+
+    List<Schools> schools = new();
+    List<SchoolsView> schoolsViews = new();
+    List<Schools> newSchools = new();
+    Schools school = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            schools = await schoolManager.GetSchools(0,20);
+            foreach (var item in schools)
+            {
+                schoolsViews.Add(new SchoolsView{ id = item.id, region_name = item.region_name, school_name = item.school_name });
+                schoolsViews= schoolsViews.OrderBy(o=>o.region_name).ToList();
+            }
+
+        }
+        catch (Exception)
+        {
+                       
+        }
+    }
+
+    void addNewSchoolEntity()
+    {
+        newSchools.Add(new Schools());
+    }
+    void removeEntity(Schools school)
+    {
+        newSchools.Remove(school);
+    }
+    async Task deleteSchool(int id)
+    {
+        bool isOk = await schoolManager.DeleteSchool(id);        
+        if (isOk)
+            schoolsViews.Remove(schoolsViews.Where(w=>w.id==id).First());  
+        schoolsViews.OrderBy(o=>o.region_name);
+        schoolsViews= schoolsViews.OrderBy(o=>o.region_name).ToList();
+    }
+    void editData(SchoolsView schools)
+    {
+        if (schoolsViews!=null && schoolsViews.Any(a=>a?.id!=null))
+        {
+            schoolsViews.FirstOrDefault(f=>f.id==schools.id).editing = true;
+            StateHasChanged();
+        }
+    }
+
+    void cancelUpdate(SchoolsView schools)
+    {
+        if (schoolsViews!=null && schoolsViews.Any(a=>a?.id!=null))
+        {
+            schoolsViews.FirstOrDefault(f=>f.id==schools.id).editing = false;
+            StateHasChanged();
+        }
+    }
+    void updateSchool(SchoolsView schools)
+    {
+        Schools school = new()
+        {
+            region_name = schools.region_name,
+            school_name=schools.school_name,
+            id=schools.id
+        };        
+        if (schoolsViews!=null && schoolsViews.Any(a=>a?.id!=null))
+        {
+            schoolsViews.FirstOrDefault(f=>f.id==schools.id).editing = false;
+            schoolsViews.FirstOrDefault(f => f.id == schools.id).school_name = schools.school_name;
+            schoolsViews.FirstOrDefault(f => f.id == schools.id).region_name= schools.region_name;            
+        }
+        schoolsViews.OrderBy(o=>o.region_name);
+        var data = schoolManager.UpdateSchool(school);
+        schoolsViews= schoolsViews.OrderBy(o=>o.region_name).ToList();
+        StateHasChanged();
+    }
+
+    async Task saveEntity(Schools school)
+    {
+        if (!string.IsNullOrEmpty(school.school_name) && !string.IsNullOrEmpty(school.region_name))     
+        {
+            var data = await schoolManager.AddSchool(school);
+            if (data!=null)
+            {
+                //schools = await schoolManager.GetSchools();
+                schoolsViews.Add(new SchoolsView{editing=false, id=school.id, region_name=school.region_name, school_name=school.school_name});
+                newSchools.Remove(school);            
+                StateHasChanged();                        
+            }
+            schoolsViews.OrderBy(o=>o.region_name);
+            schoolsViews= schoolsViews.OrderBy(o=>o.region_name).ToList();
+            StateHasChanged();            
+        }
+    }
+
+    async Task openSchoolData(int id)
+    {
+        school = await schoolManager.GetSchool(id);
+    }
+
+}
